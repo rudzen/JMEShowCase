@@ -32,7 +32,6 @@
 package showcase;
 
 import com.jme3.app.SimpleApplication;
-import com.jme3.asset.AssetManager;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
@@ -42,8 +41,6 @@ import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.control.VehicleControl;
 import com.jme3.bullet.objects.VehicleWheel;
 import com.jme3.bullet.util.CollisionShapeFactory;
-import com.jme3.collision.CollisionResult;
-import com.jme3.collision.CollisionResults;
 import com.jme3.input.ChaseCamera;
 import com.jme3.input.KeyInput;
 import com.jme3.input.controls.ActionListener;
@@ -80,50 +77,61 @@ public class Main extends SimpleApplication implements ActionListener {
     private final float TURN_FORCE = 0.5f;
     private final float ACCEL_RATE = 800f;
     private final float BRAKE_FORCE = 50f;
-    private HashMap<String, Geometry> wheelMap;
+    private HashMap<String, Geometry> geomMap;
+    
+    private final String FLOOR = "Floor";
+    private final String CAR = "Car";
+    
     private final String WHEEL_FRONT_RIGHT = "WheelFrontRight";
     private final String WHEEL_FRONT_LEFT = "WheelFrontLeft";
     private final String WHEEL_BACK_RIGHT = "WheelBackRight";
     private final String WHEEL_BACK_LEFT = "WheelBackLeft";
-
+    
+    private final String LEFTS = "Lefts";
+    private final String RIGHTS = "Rights";
+    private final String UPS = "Ups";
+    private final String DOWNS = "Downs";
+    private final String SPACE = "Space";
+    private final String RESET = "Reset";
+    
     public static void main(String[] args) {
         Main app = new Main();
         app.start();
     }
 
     private void setupKeys() {
-        inputManager.addMapping("Lefts", new KeyTrigger(KeyInput.KEY_H));
-        inputManager.addMapping("Lefts", new KeyTrigger(KeyInput.KEY_LEFT));
-        inputManager.addMapping("Rights", new KeyTrigger(KeyInput.KEY_K));
-        inputManager.addMapping("Rights", new KeyTrigger(KeyInput.KEY_RIGHT));
-        inputManager.addMapping("Ups", new KeyTrigger(KeyInput.KEY_U));
-        inputManager.addMapping("Ups", new KeyTrigger(KeyInput.KEY_UP));
-        inputManager.addMapping("Downs", new KeyTrigger(KeyInput.KEY_J));
-        inputManager.addMapping("Downs", new KeyTrigger(KeyInput.KEY_DOWN));
+        inputManager.addMapping(LEFTS, new KeyTrigger(KeyInput.KEY_H));
+        inputManager.addMapping(LEFTS, new KeyTrigger(KeyInput.KEY_LEFT));
+        inputManager.addMapping(RIGHTS, new KeyTrigger(KeyInput.KEY_K));
+        inputManager.addMapping(RIGHTS, new KeyTrigger(KeyInput.KEY_RIGHT));
+        inputManager.addMapping(UPS, new KeyTrigger(KeyInput.KEY_U));
+        inputManager.addMapping(UPS, new KeyTrigger(KeyInput.KEY_UP));
+        inputManager.addMapping(DOWNS, new KeyTrigger(KeyInput.KEY_J));
+        inputManager.addMapping(DOWNS, new KeyTrigger(KeyInput.KEY_DOWN));
 
-        inputManager.addMapping("Space", new KeyTrigger(KeyInput.KEY_SPACE));
-        inputManager.addMapping("Reset", new KeyTrigger(KeyInput.KEY_RETURN));
+        inputManager.addMapping(SPACE, new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addMapping(RESET, new KeyTrigger(KeyInput.KEY_RETURN));
 
-        inputManager.addListener(this, "Lefts");
-        inputManager.addListener(this, "Rights");
-        inputManager.addListener(this, "Ups");
-        inputManager.addListener(this, "Downs");
-        inputManager.addListener(this, "Space");
-        inputManager.addListener(this, "Reset");
+        inputManager.addListener(this, LEFTS);
+        inputManager.addListener(this, RIGHTS);
+        inputManager.addListener(this, UPS);
+        inputManager.addListener(this, DOWNS);
+        inputManager.addListener(this, SPACE);
+        inputManager.addListener(this, RESET);
     }
 
     private void configureCamera() {
         cam.setLocation(player.getPhysicsLocation().mult(20f));
         chaseCam = new ChaseCamera(cam, carNode);
         chaseCam.setSmoothMotion(true);
-        chaseCam.setChasingSensitivity(2);
+        chaseCam.setChasingSensitivity(15);
     }
 
     @Override
     public void simpleInitApp() {
         // configure basic fields..
         isResetting = new AtomicBoolean(false);
-        wheelMap = new HashMap<>(4);
+        geomMap = new HashMap<>();
 
         bulletAppState = new BulletAppState();
         stateManager.attach(bulletAppState);
@@ -136,7 +144,7 @@ public class Main extends SimpleApplication implements ActionListener {
         //flyCam.setMoveSpeed(10);
 
         setupKeys();
-        createPhysicsTestWorld(rootNode, assetManager, bulletAppState.getPhysicsSpace());
+        createPhysicsTestWorld();
         buildPlayer();
 
         configureCamera();
@@ -181,11 +189,14 @@ public class Main extends SimpleApplication implements ActionListener {
         //Load model and get chassis Geometry
         carNode = (Node) assetManager.loadModel("Models/Ferrari/Car.scene");
         carNode.setShadowMode(ShadowMode.Cast);
-        Geometry chasis = findGeom(carNode, "Car");
-        BoundingBox box = (BoundingBox) chasis.getModelBound();
+        if (!geomMap.containsKey(CAR)) {
+            geomMap.put(CAR, findGeom(carNode, "Car"));
+        }
+        
+        BoundingBox box = (BoundingBox) geomMap.get(CAR).getModelBound();
 
         //Create a hull collision shape for the chassis
-        CollisionShape carHull = CollisionShapeFactory.createDynamicMeshShape(chasis);
+        CollisionShape carHull = CollisionShapeFactory.createDynamicMeshShape(geomMap.get(CAR));
 
         //Create a vehicle control
         player = new VehicleControl(carHull, mass);
@@ -202,28 +213,28 @@ public class Main extends SimpleApplication implements ActionListener {
         Vector3f wheelDirection = new Vector3f(0, -1, 0);
         Vector3f wheelAxle = new Vector3f(-1, 0, 0);
 
-        wheelMap.put(WHEEL_FRONT_RIGHT, findGeom(carNode, WHEEL_FRONT_RIGHT));
-        wheelMap.get(WHEEL_FRONT_RIGHT).center();
-        box = (BoundingBox) wheelMap.get(WHEEL_FRONT_RIGHT).getModelBound();
+        geomMap.put(WHEEL_FRONT_RIGHT, findGeom(carNode, WHEEL_FRONT_RIGHT));
+        geomMap.get(WHEEL_FRONT_RIGHT).center();
+        box = (BoundingBox) geomMap.get(WHEEL_FRONT_RIGHT).getModelBound();
         wheelRadius = box.getYExtent();
         float back_wheel_h = (wheelRadius * 1.7f) - 1f;
         float front_wheel_h = (wheelRadius * 1.9f) - 1f;
-        player.addWheel(wheelMap.get(WHEEL_FRONT_RIGHT).getParent(), box.getCenter().add(0, -front_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, true);
+        player.addWheel(geomMap.get(WHEEL_FRONT_RIGHT).getParent(), box.getCenter().add(0, -front_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, true);
 
-        wheelMap.put(WHEEL_FRONT_LEFT, findGeom(carNode, WHEEL_FRONT_LEFT));
-        wheelMap.get(WHEEL_FRONT_LEFT).center();
-        box = (BoundingBox) wheelMap.get(WHEEL_FRONT_LEFT).getModelBound();
-        player.addWheel(wheelMap.get(WHEEL_FRONT_LEFT).getParent(), box.getCenter().add(0, -front_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, true);
+        geomMap.put(WHEEL_FRONT_LEFT, findGeom(carNode, WHEEL_FRONT_LEFT));
+        geomMap.get(WHEEL_FRONT_LEFT).center();
+        box = (BoundingBox) geomMap.get(WHEEL_FRONT_LEFT).getModelBound();
+        player.addWheel(geomMap.get(WHEEL_FRONT_LEFT).getParent(), box.getCenter().add(0, -front_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, true);
 
-        wheelMap.put(WHEEL_BACK_RIGHT, findGeom(carNode, WHEEL_BACK_RIGHT));
-        wheelMap.get(WHEEL_BACK_RIGHT).center();
-        box = (BoundingBox) wheelMap.get(WHEEL_BACK_RIGHT).getModelBound();
-        player.addWheel(wheelMap.get(WHEEL_BACK_RIGHT).getParent(), box.getCenter().add(0, -back_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, false);
+        geomMap.put(WHEEL_BACK_RIGHT, findGeom(carNode, WHEEL_BACK_RIGHT));
+        geomMap.get(WHEEL_BACK_RIGHT).center();
+        box = (BoundingBox) geomMap.get(WHEEL_BACK_RIGHT).getModelBound();
+        player.addWheel(geomMap.get(WHEEL_BACK_RIGHT).getParent(), box.getCenter().add(0, -back_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, false);
 
-        wheelMap.put(WHEEL_BACK_LEFT, findGeom(carNode, WHEEL_BACK_LEFT));
-        wheelMap.get(WHEEL_BACK_LEFT).center();
-        box = (BoundingBox) wheelMap.get(WHEEL_BACK_LEFT).getModelBound();
-        player.addWheel(wheelMap.get(WHEEL_BACK_LEFT).getParent(), box.getCenter().add(0, -back_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, false);
+        geomMap.put(WHEEL_BACK_LEFT, findGeom(carNode, WHEEL_BACK_LEFT));
+        geomMap.get(WHEEL_BACK_LEFT).center();
+        box = (BoundingBox) geomMap.get(WHEEL_BACK_LEFT).getModelBound();
+        player.addWheel(geomMap.get(WHEEL_BACK_LEFT).getParent(), box.getCenter().add(0, -back_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, false);
 
         player.getWheel(2).setFrictionSlip(4);
         player.getWheel(3).setFrictionSlip(4);
@@ -236,7 +247,7 @@ public class Main extends SimpleApplication implements ActionListener {
     @Override
     public void onAction(String binding, boolean value, float tpf) {
         switch (binding) {
-            case "Lefts":
+            case LEFTS:
                 if (value) {
                     steeringValue += TURN_FORCE;
                 } else {
@@ -244,7 +255,7 @@ public class Main extends SimpleApplication implements ActionListener {
                 }
                 player.steer(steeringValue);
                 break;
-            case "Rights":
+            case RIGHTS:
                 if (value) {
                     steeringValue -= TURN_FORCE;
                 } else {
@@ -252,28 +263,27 @@ public class Main extends SimpleApplication implements ActionListener {
                 }
                 player.steer(steeringValue);
                 break;
-            case "Ups":
+            case UPS:
                 if (value) {
                     accelerationValue -= ACCEL_RATE;
                 } else {
                     accelerationValue += ACCEL_RATE;
                 }
                 player.accelerate(accelerationValue);
-                player.setCollisionShape(CollisionShapeFactory.createDynamicMeshShape(findGeom(carNode, "Car")));
+                player.setCollisionShape(CollisionShapeFactory.createDynamicMeshShape(geomMap.get(CAR)));
                 break;
-            case "Downs":
+            case DOWNS:
                 if (value) {
                     accelerationValue += ACCEL_RATE;
                 } else {
                     accelerationValue -= ACCEL_RATE;
                 }
                 player.accelerate(accelerationValue);
-                player.setCollisionShape(CollisionShapeFactory.createDynamicMeshShape(findGeom(carNode, "Car")));
+                player.setCollisionShape(CollisionShapeFactory.createDynamicMeshShape(geomMap.get(CAR)));
                 break;
-            case "Reset":
+            case RESET:
                 if (value && !isResetting.get()) {
                     isResetting.set(true);
-                    System.out.println("Reset");
                     player.setPhysicsLocation(Vector3f.ZERO);
                     player.setPhysicsRotation(new Matrix3f());
                     player.setLinearVelocity(Vector3f.ZERO);
@@ -283,7 +293,7 @@ public class Main extends SimpleApplication implements ActionListener {
                 } else {
                 }
                 break;
-            case "Space":
+            case SPACE:
                 player.brake(value ? BRAKE_FORCE : 0f);
                 break;
         }
@@ -297,7 +307,7 @@ public class Main extends SimpleApplication implements ActionListener {
      * @param assetManager
      * @param space
      */
-    public static void createPhysicsTestWorld(Node rootNode, AssetManager assetManager, PhysicsSpace space) {
+    private void createPhysicsTestWorld() {
         AmbientLight light = new AmbientLight();
         light.setColor(ColorRGBA.DarkGray);
         rootNode.addLight(light);
@@ -306,17 +316,20 @@ public class Main extends SimpleApplication implements ActionListener {
         material.setTexture("ColorMap", assetManager.loadTexture("Textures/Terrain/Pond/Pond.jpg"));
 
         Box floorBox = new Box(240, 0.25f, 240);
-        Geometry floorGeometry = new Geometry("Floor", floorBox);
-        floorGeometry.setMaterial(material);
-        floorGeometry.setLocalTranslation(0, -5, 0);
+        if (!geomMap.containsKey(FLOOR)) {
+            geomMap.put(FLOOR, new Geometry(FLOOR, floorBox));
+        }
+        geomMap.get(FLOOR).setMaterial(material);
+        geomMap.get(FLOOR).setLocalTranslation(0, -5, 0);
 //        Plane plane = new Plane();
 //        plane.setOriginNormal(new Vector3f(0, 0.25f, 0), Vector3f.UNIT_Y);
 //        floorGeometry.addControl(new RigidBodyControl(new PlaneCollisionShape(plane), 0));
-        floorGeometry.addControl(new RigidBodyControl(0));
+        geomMap.get(FLOOR).addControl(new RigidBodyControl(0));
 
 
-        rootNode.attachChild(floorGeometry);
-        space.add(floorGeometry);
+        rootNode.attachChild(geomMap.get(FLOOR));
+        PhysicsSpace space = bulletAppState.getPhysicsSpace();
+        space.add(geomMap.get(FLOOR));
 
         //material.setTexture("ColorMap", assetManager.loadTexture("Interface/Logo/Monkey.jpg"));
 
