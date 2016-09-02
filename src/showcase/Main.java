@@ -121,10 +121,13 @@ public class Main extends SimpleApplication implements ActionListener {
     }
 
     private void configureCamera() {
-        cam.setLocation(player.getPhysicsLocation().mult(20f));
+        //cam.setLocation(player.getPhysicsLocation().mult(20f));
         chaseCam = new ChaseCamera(cam, carNode);
         chaseCam.setSmoothMotion(true);
-        chaseCam.setChasingSensitivity(15);
+        chaseCam.setChasingSensitivity(1f);
+        chaseCam.setLookAtOffset(new Vector3f(0.0f, 0.0f, 1.0f));
+        chaseCam.setMaxVerticalRotation(1f);
+        chaseCam.setTrailingEnabled(true);
     }
 
     @Override
@@ -158,10 +161,6 @@ public class Main extends SimpleApplication implements ActionListener {
         rootNode.addLight(dl);
     }
 
-    private PhysicsSpace getPhysicsSpace() {
-        return bulletAppState.getPhysicsSpace();
-    }
-
     private Geometry findGeom(Spatial spatial, String name) {
         if (spatial instanceof Node) {
             Node node = (Node) spatial;
@@ -181,7 +180,7 @@ public class Main extends SimpleApplication implements ActionListener {
     }
 
     private void buildPlayer() {
-        float stiffness = 60.0f;//200=f1 car
+        float stiffness = 200.0f;//200=f1 car
         float compValue = 0.5f; //(lower than damp!)
         float dampValue = 0.6f;
         final float mass = 300;
@@ -190,7 +189,7 @@ public class Main extends SimpleApplication implements ActionListener {
         carNode = (Node) assetManager.loadModel("Models/Ferrari/Car.scene");
         carNode.setShadowMode(ShadowMode.Cast);
         if (!geomMap.containsKey(CAR)) {
-            geomMap.put(CAR, findGeom(carNode, "Car"));
+            geomMap.put(CAR, findGeom(carNode, CAR));
         }
         
         BoundingBox box = (BoundingBox) geomMap.get(CAR).getModelBound();
@@ -241,7 +240,7 @@ public class Main extends SimpleApplication implements ActionListener {
 
         rootNode.attachChild(carNode);
 
-        getPhysicsSpace().add(player);
+        bulletAppState.getPhysicsSpace().add(player);
     }
 
     @Override
