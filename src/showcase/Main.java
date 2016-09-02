@@ -60,8 +60,15 @@ import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import com.jme3.shadow.BasicShadowRenderer;
+import com.jme3.terrain.geomipmap.TerrainLodControl;
+import com.jme3.terrain.geomipmap.TerrainQuad;
+import com.jme3.terrain.geomipmap.lodcalc.DistanceLodCalculator;
+import com.jme3.terrain.heightmap.AbstractHeightMap;
+import com.jme3.terrain.heightmap.ImageBasedHeightMap;
+import com.jme3.texture.Texture;
 import com.jme3.util.SkyFactory;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends SimpleApplication implements ActionListener {
@@ -92,6 +99,13 @@ public class Main extends SimpleApplication implements ActionListener {
     private final String SPACE = "Space";
     private final String RESET = "Reset";
 
+    // terrain stuff
+    private float grassScale = 64;
+    private float dirtScale = 16;
+    private float rockScale = 128;
+    private TerrainQuad terrain;
+    private Material matRock;
+    
     public static void main(String[] args) {
         Main app = new Main();
         app.start();
@@ -125,6 +139,8 @@ public class Main extends SimpleApplication implements ActionListener {
         chaseCam.setChasingSensitivity(1f);
         chaseCam.setLookAtOffset(new Vector3f(0.0f, 0.0f, 1.0f));
         chaseCam.setMaxVerticalRotation(1f);
+        chaseCam.setDefaultDistance(20f);
+        chaseCam.setDownRotateOnCloseViewOnly(true);
         chaseCam.setTrailingEnabled(true);
     }
 
@@ -156,7 +172,7 @@ public class Main extends SimpleApplication implements ActionListener {
         nature = new AudioNode(assetManager, "Sound/Environment/Nature.ogg", true);
         nature.setPositional(false);
         nature.setVolume(5);
-        
+
         engine = new AudioNode(assetManager, "Sound/Effects/Gun.wav", false);
         engine.setPositional(true);
         engine.setPitch(2f);
@@ -187,6 +203,7 @@ public class Main extends SimpleApplication implements ActionListener {
         //flyCam.setMoveSpeed(10);
 
         setupKeys();
+        createTerrain();
         createPhysicsTestWorld();
         buildPlayer();
 
@@ -195,7 +212,7 @@ public class Main extends SimpleApplication implements ActionListener {
         configureCamera();
 
         initAmbience();
-        
+
         DirectionalLight dl = new DirectionalLight();
         dl.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
         rootNode.addLight(dl);
@@ -224,9 +241,9 @@ public class Main extends SimpleApplication implements ActionListener {
     }
 
     private void buildPlayer() {
-        float stiffness = 100.0f;//200=f1 car
-        float compValue = 0.5f; //(lower than damp!)
-        float dampValue = 0.6f;
+        float stiffness = 50.0f;//200=f1 car
+        float compValue = 0.1f; //(lower than damp!)
+        float dampValue = 0.2f;
         final float mass = 300;
 
         //Load model and get chassis Geometry
@@ -342,6 +359,85 @@ public class Main extends SimpleApplication implements ActionListener {
         }
     }
 
+    private void createTerrain() {
+        // First, we load up our textures and the heightmap texture for the terrain
+
+        // TERRAIN TEXTURE material
+        matRock = new Material(assetManager, "Common/MatDefs/Terrain/Terrain.j3md");
+        matRock.setBoolean("useTriPlanarMapping", false);
+
+        // ALPHA map (for splat textures)
+        matRock.setTexture("Alpha", assetManager.loadTexture("Textures/Terrain/splat/alphamap.png"));
+
+        // HEIGHTMAP image (for the terrain heightmap)
+        Texture heightMapImage = assetManager.loadTexture("Textures/Terrain/splat/mountains512.png");
+
+        // GRASS texture
+        Texture grass = assetManager.loadTexture("Textures/Terrain/splat/grass.jpg");
+        grass.setWrap(Texture.WrapMode.Repeat);
+        matRock.setTexture("Tex1", grass);
+        matRock.setFloat("Tex1Scale", grassScale);
+
+        // DIRT texture
+        Texture dirt = assetManager.loadTexture("Textures/Terrain/splat/dirt.jpg");
+        dirt.setWrap(Texture.WrapMode.Repeat);
+        matRock.setTexture("Tex2", dirt);
+        matRock.setFloat("Tex2Scale", dirtScale);
+
+        // ROCK texture
+        Texture rock = assetManager.loadTexture("Textures/Terrain/splat/road.jpg");
+        rock.setWrap(Texture.WrapMode.Repeat);
+        matRock.setTexture("Tex3", rock);
+        matRock.setFloat("Tex3Scale", rockScale);
+
+        // WIREFRAME material
+        /*
+        matWire = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        matWire.getAdditionalRenderState().setWireframe(true);
+        matWire.setColor("Color", ColorRGBA.Green);
+        */
+
+        // CREATE HEIGHTMAP
+        AbstractHeightMap heightmap = null;
+        try {
+            //heightmap = new HillHeightMap(1025, 1000, 50, 100, (byte) 3);
+
+            heightmap = new ImageBasedHeightMap(heightMapImage.getImage(), 1f);
+            heightmap.load();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        /*
+         * Here we create the actual terrain. The tiles will be 65x65, and the total size of the
+         * terrain will be 513x513. It uses the heightmap we created to generate the height values.
+         */
+        /**
+         * Optimal terrain patch size is 65 (64x64). The total size is up to
+         * you. At 1025 it ran fine for me (200+FPS), however at size=2049, it
+         * got really slow. But that is a jump from 2 million to 8 million
+         * triangles...
+         */
+        terrain = new TerrainQuad("terrain", 65, 513, heightmap.getHeightMap());
+        TerrainLodControl control = new TerrainLodControl(terrain, getCamera());
+        control.setLodCalculator(new DistanceLodCalculator(65, 2.7f)); // patch size, and a multiplier
+        terrain.addControl(control);
+        terrain.setMaterial(matRock);
+        terrain.setLocalTranslation(0, -100, 0);
+        terrain.setLocalScale(2f, 0.5f, 2f);
+        RigidBodyControl rbc = new RigidBodyControl(0);        
+        terrain.addControl(rbc);
+        bulletAppState.getPhysicsSpace().add(terrain);
+        
+
+        rootNode.attachChild(terrain);
+        
+        DirectionalLight light = new DirectionalLight();
+        light.setDirection((new Vector3f(-0.5f, -1f, -0.5f)).normalize());
+        rootNode.addLight(light);
+    }
+
     /**
      * creates a simple physics test world with a floor, an obstacle and some
      * test boxes
@@ -358,31 +454,19 @@ public class Main extends SimpleApplication implements ActionListener {
         Material material = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         material.setTexture("ColorMap", assetManager.loadTexture("Textures/Terrain/Pond/Pond.jpg"));
 
-        Box floorBox = new Box(240, 0.25f, 240);
-        if (!geomMap.containsKey(FLOOR)) {
-            geomMap.put(FLOOR, new Geometry(FLOOR, floorBox));
-        }
-        geomMap.get(FLOOR).setMaterial(material);
-        geomMap.get(FLOOR).setLocalTranslation(0, -5, 0);
-//        Plane plane = new Plane();
-//        plane.setOriginNormal(new Vector3f(0, 0.25f, 0), Vector3f.UNIT_Y);
-//        floorGeometry.addControl(new RigidBodyControl(new PlaneCollisionShape(plane), 0));
-        geomMap.get(FLOOR).addControl(new RigidBodyControl(0));
-
-        rootNode.attachChild(geomMap.get(FLOOR));
         PhysicsSpace space = bulletAppState.getPhysicsSpace();
-        space.add(geomMap.get(FLOOR));
-
-        //material.setTexture("ColorMap", assetManager.loadTexture("Interface/Logo/Monkey.jpg"));
-
+        
         //movable boxes
         light = new AmbientLight();
         light.setColor(ColorRGBA.Green);
-        for (int i = 0; i < 12; i++) {
-            Box box = new Box(0.25f, 0.25f, 0.25f);
+        Random rnd = new Random();
+        Box box = new Box(0.25f, 0.25f, 0.25f);
+        for (int i = 0; i < 400; i++) {
             Geometry boxGeometry = new Geometry("Box", box);
             boxGeometry.setMaterial(material);
-            boxGeometry.setLocalTranslation(i, 5, -3);
+            boxGeometry.setLocalTranslation(rnd.nextInt(200), 5, (i % 4 <= 2 ? -rnd.nextInt(4) : rnd.nextInt()));
+            //boxGeometry.setLocalTranslation(i, 5, -3);
+
             //RigidBodyControl automatically uses box collision shapes when attached to single geometry with box mesh
             boxGeometry.addControl(new RigidBodyControl(2));
             boxGeometry.addLight(light);
@@ -393,6 +477,7 @@ public class Main extends SimpleApplication implements ActionListener {
         //immovable sphere with mesh collision shape
         Sphere sphere = new Sphere(8, 8, 1);
         Geometry sphereGeometry = new Geometry("Sphere", sphere);
+
         sphereGeometry.setMaterial(material);
         sphereGeometry.setLocalTranslation(4, -4, 2);
         sphereGeometry.addControl(new RigidBodyControl(new MeshCollisionShape(sphere), 0));
