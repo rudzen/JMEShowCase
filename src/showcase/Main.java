@@ -32,6 +32,8 @@
 package showcase;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.audio.AudioNode;
+import com.jme3.audio.Environment;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
@@ -39,7 +41,6 @@ import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.control.VehicleControl;
-import com.jme3.bullet.objects.VehicleWheel;
 import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.input.ChaseCamera;
 import com.jme3.input.KeyInput;
@@ -59,6 +60,7 @@ import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import com.jme3.shadow.BasicShadowRenderer;
+import com.jme3.util.SkyFactory;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -66,11 +68,10 @@ public class Main extends SimpleApplication implements ActionListener {
 
     private BulletAppState bulletAppState;
     private VehicleControl player;
-    private VehicleWheel fr, fl, br, bl;
-    private Node node_fr, node_fl, node_br, node_bl;
+    private AudioNode nature, waves, engine;
     private float wheelRadius;
-    private float steeringValue = 0;
-    private float accelerationValue = 0;
+    private float steeringValue = 0f;
+    private float accelerationValue = 0f;
     private Node carNode;
     private ChaseCamera chaseCam;
     private AtomicBoolean isResetting;
@@ -78,22 +79,19 @@ public class Main extends SimpleApplication implements ActionListener {
     private final float ACCEL_RATE = 800f;
     private final float BRAKE_FORCE = 50f;
     private HashMap<String, Geometry> geomMap;
-    
     private final String FLOOR = "Floor";
     private final String CAR = "Car";
-    
     private final String WHEEL_FRONT_RIGHT = "WheelFrontRight";
     private final String WHEEL_FRONT_LEFT = "WheelFrontLeft";
     private final String WHEEL_BACK_RIGHT = "WheelBackRight";
     private final String WHEEL_BACK_LEFT = "WheelBackLeft";
-    
     private final String LEFTS = "Lefts";
     private final String RIGHTS = "Rights";
     private final String UPS = "Ups";
     private final String DOWNS = "Downs";
     private final String SPACE = "Space";
     private final String RESET = "Reset";
-    
+
     public static void main(String[] args) {
         Main app = new Main();
         app.start();
@@ -130,6 +128,48 @@ public class Main extends SimpleApplication implements ActionListener {
         chaseCam.setTrailingEnabled(true);
     }
 
+    private Spatial loadSky() {
+        return SkyFactory.createSky(assetManager,
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_west.jpg"),
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_east.jpg"),
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_north.jpg"),
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_south.jpg"),
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_up.jpg"),
+                assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_down.jpg"));
+    }
+
+    private void initAmbience() {
+        float[] eax = new float[]{15, 38.0f, 0.300f, -1000, -3300, 0,
+            1.49f, 0.54f, 1.00f, -2560, 0.162f, 0.00f, 0.00f,
+            0.00f, -229, 0.088f, 0.00f, 0.00f, 0.00f, 0.125f, 1.000f,
+            0.250f, 0.000f, -5.0f, 5000.0f, 250.0f, 0.00f, 0x3f};
+        Environment env = new Environment(eax);
+        audioRenderer.setEnvironment(env);
+
+        waves = new AudioNode(assetManager, "Sound/Environment/Ocean Waves.ogg", false);
+        waves.setPositional(true);
+        waves.setLocalTranslation(new Vector3f(0, 0, 0));
+        waves.setMaxDistance(100);
+        waves.setRefDistance(5);
+        waves.setVolume(3);
+
+        nature = new AudioNode(assetManager, "Sound/Environment/Nature.ogg", true);
+        nature.setPositional(false);
+        nature.setVolume(5);
+        
+        engine = new AudioNode(assetManager, "Sound/Effects/Gun.wav", false);
+        engine.setPositional(true);
+        engine.setPitch(2f);
+        engine.setVolume(7);
+        engine.setLooping(true);
+        //engine.setVelocity(new Vector3f(144.0f, 144.0f, 144.0f));
+        //engine.play();
+
+        waves.play();
+        nature.play();
+
+    }
+
     @Override
     public void simpleInitApp() {
         // configure basic fields..
@@ -150,8 +190,12 @@ public class Main extends SimpleApplication implements ActionListener {
         createPhysicsTestWorld();
         buildPlayer();
 
+        rootNode.attachChild(loadSky());
+
         configureCamera();
 
+        initAmbience();
+        
         DirectionalLight dl = new DirectionalLight();
         dl.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());
         rootNode.addLight(dl);
@@ -180,7 +224,7 @@ public class Main extends SimpleApplication implements ActionListener {
     }
 
     private void buildPlayer() {
-        float stiffness = 200.0f;//200=f1 car
+        float stiffness = 100.0f;//200=f1 car
         float compValue = 0.5f; //(lower than damp!)
         float dampValue = 0.6f;
         final float mass = 300;
@@ -191,7 +235,7 @@ public class Main extends SimpleApplication implements ActionListener {
         if (!geomMap.containsKey(CAR)) {
             geomMap.put(CAR, findGeom(carNode, CAR));
         }
-        
+
         BoundingBox box = (BoundingBox) geomMap.get(CAR).getModelBound();
 
         //Create a hull collision shape for the chassis
@@ -325,7 +369,6 @@ public class Main extends SimpleApplication implements ActionListener {
 //        floorGeometry.addControl(new RigidBodyControl(new PlaneCollisionShape(plane), 0));
         geomMap.get(FLOOR).addControl(new RigidBodyControl(0));
 
-
         rootNode.attachChild(geomMap.get(FLOOR));
         PhysicsSpace space = bulletAppState.getPhysicsSpace();
         space.add(geomMap.get(FLOOR));
@@ -334,7 +377,7 @@ public class Main extends SimpleApplication implements ActionListener {
 
         //movable boxes
         light = new AmbientLight();
-        light.setColor(ColorRGBA.Pink);
+        light.setColor(ColorRGBA.Green);
         for (int i = 0; i < 12; i++) {
             Box box = new Box(0.25f, 0.25f, 0.25f);
             Geometry boxGeometry = new Geometry("Box", box);
