@@ -6,12 +6,10 @@ package showcase;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.audio.AudioNode;
-import com.jme3.audio.Environment;
 import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
-import com.jme3.bullet.collision.shapes.MeshCollisionShape;
 import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.control.VehicleControl;
 import com.jme3.bullet.util.CollisionShapeFactory;
@@ -29,7 +27,6 @@ import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import com.jme3.terrain.geomipmap.TerrainLodControl;
 import com.jme3.terrain.geomipmap.TerrainQuad;
@@ -142,12 +139,13 @@ public abstract class Stuff extends SimpleApplication {
 
     protected void configureCamera() {
         //cam.setLocation(player.getPhysicsLocation().mult(20f));
+        cam.setFrustumFar(1000);
         chaseCam = new ChaseCamera(cam, carNode);
         chaseCam.setSmoothMotion(true);
         chaseCam.setChasingSensitivity(1f);
         chaseCam.setLookAtOffset(new Vector3f(0.0f, 0.0f, 1.0f));
         chaseCam.setMaxVerticalRotation(1f);
-        chaseCam.setDefaultDistance(20f);
+        chaseCam.setDefaultDistance(50f);
         chaseCam.setDownRotateOnCloseViewOnly(true);
         chaseCam.setTrailingEnabled(true);
     }
@@ -202,10 +200,10 @@ public abstract class Stuff extends SimpleApplication {
     }
 
     protected void buildPlayer() {
-        float stiffness = 50.0f;//200=f1 car
-        float compValue = 0.1f; //(lower than damp!)
-        float dampValue = 0.2f;
-        final float mass = 300;
+        float stiffness = 150.0f;//200=f1 car
+        float compValue = 0.3f; //(lower than damp!)
+        float dampValue = 0.4f;
+        final float mass = 400;
 
         //Load model and get chassis Geometry
         carNode = (Node) assetManager.loadModel("Models/Ferrari/Car.scene");
@@ -257,9 +255,14 @@ public abstract class Stuff extends SimpleApplication {
         box = (BoundingBox) geomMap.get(WHEEL_BACK_LEFT).getModelBound();
         player.addWheel(geomMap.get(WHEEL_BACK_LEFT).getParent(), box.getCenter().add(0, -back_wheel_h, 0), wheelDirection, wheelAxle, 0.2f, wheelRadius, false);
 
-        player.getWheel(2).setFrictionSlip(4);
-        player.getWheel(3).setFrictionSlip(4);
+        player.getWheel(2).setFrictionSlip(6);
+        player.getWheel(3).setFrictionSlip(6);
 
+        /*
+        player.getWheel(0).setMaxSuspensionTravelCm(player.getWheel(0).getMaxSuspensionTravelCm() * 2);
+        player.getWheel(1).setMaxSuspensionTravelCm(player.getWheel(1).getMaxSuspensionTravelCm() * 2);
+        */
+        
         rootNode.attachChild(carNode);
 
         bulletAppState.getPhysicsSpace().add(player);
@@ -296,29 +299,22 @@ public abstract class Stuff extends SimpleApplication {
         matRock.setTexture("Tex3", rock);
         matRock.setFloat("Tex3Scale", rockScale);
 
-        // WIREFRAME material
-        /*
-         matWire = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-         matWire.getAdditionalRenderState().setWireframe(true);
-         matWire.setColor("Color", ColorRGBA.Green);
-         */
-
         // CREATE HEIGHTMAP
         AbstractHeightMap heightmap = null;
         try {
             //heightmap = new HillHeightMap(1025, 1000, 50, 100, (byte) 3);
-
             heightmap = new ImageBasedHeightMap(heightMapImage.getImage(), 1f);
             heightmap.load();
-
         } catch (Exception e) {
-            e.printStackTrace();
+            
         }
 
         /*
          * Here we create the actual terrain. The tiles will be 65x65, and the total size of the
          * terrain will be 513x513. It uses the heightmap we created to generate the height values.
          */
+        
+        
         /**
          * Optimal terrain patch size is 65 (64x64). The total size is up to
          * you. At 1025 it ran fine for me (200+FPS), however at size=2049, it
@@ -326,43 +322,21 @@ public abstract class Stuff extends SimpleApplication {
          * triangles...
          */
         terrain = new TerrainQuad("terrain", 65, 513, heightmap.getHeightMap());
+        //terrain = new TerrainQuad("terrain", 65, 513, heightmap.getHeightMap());
         TerrainLodControl control = new TerrainLodControl(terrain, getCamera());
         control.setLodCalculator(new DistanceLodCalculator(65, 2.7f)); // patch size, and a multiplier
         terrain.addControl(control);
         terrain.setMaterial(matRock);
-        terrain.setLocalTranslation(0, -100, 0);
-        terrain.setLocalScale(2f, 0.5f, 2f);
-        RigidBodyControl rbc = new RigidBodyControl(0);
-        terrain.addControl(rbc);
+        terrain.setLocalTranslation(0, -590, 0);
+        terrain.setLocalScale(20f, 5f, 20f);
+        terrain.addControl(new RigidBodyControl(0));
         bulletAppState.getPhysicsSpace().add(terrain);
-
 
         rootNode.attachChild(terrain);
 
         DirectionalLight light = new DirectionalLight();
         light.setDirection((new Vector3f(-0.5f, -1f, -0.5f)).normalize());
+        light.setColor(ColorRGBA.DarkGray);
         rootNode.addLight(light);
-    }
-
-    private static class ActionListenerImpl implements ActionListener {
-
-        public ActionListenerImpl() {
-        }
-
-        @Override
-        public void onAction(String name, boolean isPressed, float tpf) {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        }
-    }
-
-    private static class MovementListener implements ActionListener {
-
-        public MovementListener() {
-        }
-
-        @Override
-        public void onAction(String name, boolean isPressed, float tpf) {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        }
     }
 }
