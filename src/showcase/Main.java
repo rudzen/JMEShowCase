@@ -70,7 +70,9 @@ public class Main extends Stuff {
 
         configureCamera();
 
-        initAmbience();
+        audio.setDefaults(assetManager, audioRenderer);
+        audio.nodes.get(audio.AMBIENCE).play();
+        audio.nodes.get(audio.WAVES).play();
 
         DirectionalLight dl = new DirectionalLight();
         dl.setDirection(new Vector3f(-0.5f, -1f, -0.3f).normalizeLocal());

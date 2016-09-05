@@ -82,7 +82,10 @@ public abstract class Stuff extends SimpleApplication {
     private Node carNode;
     private ChaseCamera chaseCam;
 
+    protected Audio audio;
+    
     protected Stuff() {
+        audio = new Audio();
         geomMap = new HashMap<>();
     }
 
@@ -103,7 +106,7 @@ public abstract class Stuff extends SimpleApplication {
         rootNode.addLight(light);
 
         Material material = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        material.setTexture("ColorMap", assetManager.loadTexture("Textures/Terrain/Pond/Pond.jpg"));
+        material.setTexture("ColorMap", assetManager.loadTexture("Textures/Terrain/Rock2/rock.jpg"));
 
         PhysicsSpace space = bulletAppState.getPhysicsSpace();
 
@@ -111,9 +114,9 @@ public abstract class Stuff extends SimpleApplication {
         light = new AmbientLight();
         light.setColor(ColorRGBA.Green);
         Random rnd = new Random();
-        Box box = new Box(0.25f, 0.25f, 0.25f);
+        Sphere ball = new Sphere(200, 200, 0.25f);
         for (int i = 0; i < 400; i++) {
-            Geometry boxGeometry = new Geometry("Box", box);
+            Geometry boxGeometry = new Geometry("Ball", ball);
             boxGeometry.setMaterial(material);
             boxGeometry.setLocalTranslation(rnd.nextInt(200), 5, (i % 4 <= 2 ? -rnd.nextInt(4) : rnd.nextInt()));
             //boxGeometry.setLocalTranslation(i, 5, -3);
@@ -125,15 +128,16 @@ public abstract class Stuff extends SimpleApplication {
             space.add(boxGeometry);
         }
 
+        /*
         //immovable sphere with mesh collision shape
         Sphere sphere = new Sphere(8, 8, 1);
         Geometry sphereGeometry = new Geometry("Sphere", sphere);
-
         sphereGeometry.setMaterial(material);
         sphereGeometry.setLocalTranslation(4, -4, 2);
         sphereGeometry.addControl(new RigidBodyControl(new MeshCollisionShape(sphere), 0));
         rootNode.attachChild(sphereGeometry);
         space.add(sphereGeometry);
+        */
     }
 
     protected void configureCamera() {
@@ -177,37 +181,6 @@ public abstract class Stuff extends SimpleApplication {
                 assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_south.jpg"),
                 assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_up.jpg"),
                 assetManager.loadTexture("Textures/Sky/Lagoon/lagoon_down.jpg"));
-    }
-
-    protected void initAmbience() {
-        float[] eax = new float[]{15, 38.0f, 0.300f, -1000, -3300, 0,
-            1.49f, 0.54f, 1.00f, -2560, 0.162f, 0.00f, 0.00f,
-            0.00f, -229, 0.088f, 0.00f, 0.00f, 0.00f, 0.125f, 1.000f,
-            0.250f, 0.000f, -5.0f, 5000.0f, 250.0f, 0.00f, 0x3f};
-        Environment env = new Environment(eax);
-        audioRenderer.setEnvironment(env);
-
-        waves = new AudioNode(assetManager, "Sound/Environment/Ocean Waves.ogg", false);
-        waves.setPositional(true);
-        waves.setLocalTranslation(new Vector3f(0, 0, 0));
-        waves.setMaxDistance(100);
-        waves.setRefDistance(5);
-        waves.setVolume(3);
-
-        nature = new AudioNode(assetManager, "Sound/Environment/Nature.ogg", true);
-        nature.setPositional(false);
-        nature.setVolume(5);
-
-        engine = new AudioNode(assetManager, "Sound/Effects/Gun.wav", false);
-        engine.setPositional(true);
-        engine.setPitch(2f);
-        engine.setVolume(7);
-        engine.setLooping(true);
-        //engine.setVelocity(new Vector3f(144.0f, 144.0f, 144.0f));
-        //engine.play();
-
-        waves.play();
-        nature.play();
     }
 
     protected static Geometry findGeom(Spatial spatial, String name) {
