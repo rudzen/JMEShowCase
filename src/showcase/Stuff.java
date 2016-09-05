@@ -58,8 +58,7 @@ public abstract class Stuff extends SimpleApplication {
     protected final String DOWNS = "Downs";
     protected final String SPACE = "Space";
     protected final String RESET = "Reset";
-    // Audio
-    protected AudioNode nature, waves, engine;
+    // forces for controlling the car
     protected final float TURN_FORCE = 0.5f;
     protected final float ACCEL_RATE = 800f;
     protected final float BRAKE_FORCE = 50f;
@@ -203,7 +202,7 @@ public abstract class Stuff extends SimpleApplication {
         float stiffness = 150.0f;//200=f1 car
         float compValue = 0.3f; //(lower than damp!)
         float dampValue = 0.4f;
-        final float mass = 400;
+        final float mass = 1000;
 
         //Load model and get chassis Geometry
         carNode = (Node) assetManager.loadModel("Models/Ferrari/Car.scene");
@@ -322,7 +321,6 @@ public abstract class Stuff extends SimpleApplication {
          * triangles...
          */
         terrain = new TerrainQuad("terrain", 65, 513, heightmap.getHeightMap());
-        //terrain = new TerrainQuad("terrain", 65, 513, heightmap.getHeightMap());
         TerrainLodControl control = new TerrainLodControl(terrain, getCamera());
         control.setLodCalculator(new DistanceLodCalculator(65, 2.7f)); // patch size, and a multiplier
         terrain.addControl(control);
@@ -335,7 +333,7 @@ public abstract class Stuff extends SimpleApplication {
         rootNode.attachChild(terrain);
 
         DirectionalLight light = new DirectionalLight();
-        light.setDirection((new Vector3f(-0.5f, -1f, -0.5f)).normalize());
+        light.setDirection((new Vector3f(-0.5f, -1f, -0.9f)).normalize());
         light.setColor(ColorRGBA.DarkGray);
         rootNode.addLight(light);
     }

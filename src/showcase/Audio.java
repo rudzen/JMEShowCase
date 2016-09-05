@@ -40,9 +40,9 @@ public class Audio {
         audioRenderer.setEnvironment(environment);
 
         // default AudioNodes
-        nodes.put(AMBIENCE, new AudioNode(assetManager, "Sound/Environment/Nature.ogg", true));
-        nodes.put(WAVES, new AudioNode(assetManager, "Sound/Environment/Ocean Waves.ogg", true));
-        nodes.put(ENGINE, new AudioNode(assetManager, "Sound/Effects/Gun.wav", false));
+        nodes.put(AMBIENCE, new AudioNode(assetManager, "Sounds/Environment/Nature.ogg", true));
+        nodes.put(WAVES, new AudioNode(assetManager, "Sounds/Environment/Ocean Waves.ogg", true));
+        nodes.put(ENGINE, new AudioNode(assetManager, "Sounds/Effects/Gun.wav", false));
 
         nodes.get(WAVES).setPositional(true);
         nodes.get(WAVES).setLocalTranslation(new Vector3f(0, 0, 0));
